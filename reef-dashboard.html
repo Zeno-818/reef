@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reef OS">
+<title>REEF · OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #020a12;
+  --panel:  rgba(4,16,30,0.38);
+  --panelB: rgba(3,12,24,0.45);
+  --rim:    rgba(0,180,220,0.18);
+  --rim2:   rgba(0,255,160,0.15);
+  --cyan:   #00d4f0;
+  --teal:   #00ffb8;
+  --amber:  #ffcc44;
+  --danger: #ff4040;
+  --coral:  #ff7055;
+  --text:   #d0ecf8;
+  --sub:    #3a6878;
+  --ok:     #00ffb8;
+  --warn:   #ffcc44;
+  --mono:   'Share Tech Mono', monospace;
+  --head:   'Rajdhani', sans-serif;
+  --body:   'Quicksand', sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--body);}
+
+/* ── reef canvas background ── */
+#reef-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+
+/* ── deep water gradient overlay ── */
+#water-overlay{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(2,10,18,.45) 0%,rgba(2,14,26,.22) 40%,rgba(2,20,36,.30) 100%),
+    radial-gradient(ellipse 120% 50% at 50% -5%,rgba(0,100,180,.16) 0%,transparent 60%);
+}
+
+/* ── scanlines ── */
+#scanlines{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background-image:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 3px);
+  opacity:.5;}
+
+/* ══ APP SHELL ══ */
+#app{position:relative;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;padding:10px 14px 8px;gap:8px;overflow:hidden;}
+
+/* ══ TOP BAR ══ */
+.top-bar{display:flex;align-items:center;gap:10px;flex-shrink:0;overflow:hidden;}
+.logo-block{flex-shrink:0;}
+.logo{font-family:var(--head);font-weight:700;font-size:1.75rem;letter-spacing:.22em;color:var(--cyan);text-transform:uppercase;
+  text-shadow:0 0 20px rgba(0,212,240,.7),0 0 50px rgba(0,212,240,.25);line-height:1.1;}
+.logo span{color:var(--teal);}
+.logo-sub{font-family:var(--head);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--sub);}
+
+/* apex bar grows to fill middle space but never pushes right elements off */
+.apex-bar{flex:1;min-width:0;display:flex;align-items:center;gap:9px;
+  background:var(--panel);border:1px solid var(--rim);border-radius:9px;padding:6px 13px;backdrop-filter:blur(8px);overflow:hidden;}
+.apex-dot{width:8px;height:8px;border-radius:50%;background:var(--sub);flex-shrink:0;transition:background .4s,box-shadow .4s;}
+.apex-dot.online {background:var(--ok);   box-shadow:0 0 8px var(--ok);}
+.apex-dot.offline{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+.apex-dot.polling{background:var(--amber); box-shadow:0 0 8px var(--amber);animation:pdot 1s ease-in-out infinite;}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+.apex-lbl{font-family:var(--head);font-size:.88rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);white-space:nowrap;flex-shrink:0;}
+.apex-lbl.online{color:var(--ok);}.apex-lbl.offline{color:var(--danger);}
+.apex-ip-in{background:rgba(0,0,0,.5);border:1px solid var(--rim);color:var(--text);border-radius:6px;padding:5px 9px;font-family:var(--mono);font-size:.82rem;width:155px;flex-shrink:1;min-width:80px;}
+.apex-ip-in:focus{outline:none;border-color:var(--cyan);}
+.btn-xs{background:rgba(0,212,240,.10);border:1px solid rgba(0,212,240,.28);color:var(--cyan);border-radius:6px;padding:5px 12px;
+  font-family:var(--head);font-weight:600;font-size:.8rem;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .16s;}
+.btn-xs:active{background:rgba(0,212,240,.24);}
+.last-poll{font-family:var(--mono);font-size:.7rem;color:var(--sub);white-space:nowrap;flex-shrink:1;overflow:hidden;text-overflow:ellipsis;}
+
+/* right-side block: clock stacked above menu button, always visible */
+.top-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+#clock-time{font-family:var(--mono);font-size:1.35rem;color:var(--text);letter-spacing:.1em;display:block;white-space:nowrap;}
+#clock-date{font-family:var(--head);font-size:.65rem;letter-spacing:.15em;color:var(--sub);text-transform:uppercase;white-space:nowrap;}
+
+.drawer-btn{background:rgba(0,212,240,.10);border:1px solid rgba(0,212,240,.28);color:var(--cyan);border-radius:7px;padding:6px 14px;
+  font-family:var(--head);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .2s;}
+.drawer-btn:active{background:rgba(0,212,240,.22);}
+
+/* ══ ALERT BANNER ══ */
+#alert-banner{display:none;flex-shrink:0;align-items:center;gap:11px;
+  background:rgba(255,40,40,.18);border:2px solid rgba(255,40,40,.6);border-radius:8px;padding:9px 14px;backdrop-filter:blur(12px);}
+#alert-banner.visible{display:flex;animation:ablink 0.8s ease-in-out infinite;}
+@keyframes ablink{0%,100%{border-color:rgba(255,40,40,.5);background:rgba(255,40,40,.15);}50%{border-color:rgba(255,80,80,1);background:rgba(255,40,40,.28);}}
+.alert-icon{font-size:1.4rem;}
+.alert-text{font-family:var(--head);font-size:1.1rem;font-weight:700;letter-spacing:.06em;color:#ff5050;flex:1;}
+.alert-text small{display:block;font-size:.72rem;font-weight:400;color:rgba(255,100,100,.7);letter-spacing:.1em;text-transform:uppercase;margin-top:1px;}
+.btn-ack{background:rgba(255,40,40,.2);border:1px solid rgba(255,40,40,.5);color:#ff6060;border-radius:6px;padding:6px 14px;
+  font-family:var(--head);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+
+/* ══ MAIN ROW ══ */
+.main-row{flex:1;min-height:0;display:flex;gap:12px;}
+.slabel{font-family:var(--head);font-weight:700;font-size:.72rem;letter-spacing:.25em;text-transform:uppercase;color:var(--sub);
+  border-left:2px solid var(--rim);padding-left:8px;margin-bottom:7px;flex-shrink:0;}
+
+/* ── LEFT: probe grid ── */
+.col-probes{flex:1.35;min-width:0;display:flex;flex-direction:column;}
+.probe-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:9px;}
+
+/* probe card — vertical bar layout */
+.pcard{
+  background:var(--panel);border:1px solid var(--rim);border-radius:14px;
+  padding:11px 12px 10px;backdrop-filter:blur(8px);position:relative;overflow:hidden;cursor:pointer;
+  display:flex;flex-direction:column;align-items:stretch;gap:5px;
+  transition:border-color .3s,box-shadow .3s;user-select:none;
+}
+.pcard::before{content:'';position:absolute;inset:0;background:linear-gradient(145deg,rgba(0,212,240,.05) 0%,transparent 50%);pointer-events:none;}
+.pcard.status-ok    {border-color:rgba(0,255,184,.28);}
+.pcard.status-warn  {border-color:rgba(255,204,68,.55); box-shadow:0 0 18px rgba(255,204,68,.14);}
+.pcard.status-danger{border-color:rgba(255,64,64,.65);  box-shadow:0 0 22px rgba(255,64,64,.25);animation:dpulse 1.5s ease-in-out infinite;}
+@keyframes dpulse{0%,100%{box-shadow:0 0 22px rgba(255,64,64,.25)}50%{box-shadow:0 0 40px rgba(255,64,64,.55)}}
+
+/* LABEL ROW — icon + bold name */
+.pcard-label{display:flex;align-items:center;gap:7px;overflow:hidden;}
+.pcard-icon{font-size:1.45rem;line-height:1;flex-shrink:0;}
+.pcard-name-text{font-family:var(--head);font-weight:700;font-size:1.0rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text);line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pcard-badge{font-family:var(--head);font-weight:700;font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px;flex-shrink:0;white-space:nowrap;}
+.badge-ok    {background:rgba(0,255,184,.10);color:var(--ok);   border:1px solid rgba(0,255,184,.28);}
+.badge-warn  {background:rgba(255,204,68,.10);color:var(--warn); border:1px solid rgba(255,204,68,.3);}
+.badge-danger{background:rgba(255,64,64,.12); color:var(--danger);border:1px solid rgba(255,64,64,.32);}
+
+/* source tag */
+.pcard-source{font-family:var(--head);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(0,212,240,.55);display:flex;align-items:center;gap:5px;}
+.live-pip  {display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan);animation:pdot 2s ease-in-out infinite;flex-shrink:0;}
+.trident-pip{display:inline-block;width:6px;height:6px;border-radius:50%;background:#b07aff;box-shadow:0 0 6px #b07aff;animation:pdot 2.5s ease-in-out infinite;flex-shrink:0;}
+
+/* ── VERTICAL BAR — full width, labels inside ── */
+.pbar-outer{
+  flex:1; min-height:0;
+  padding:4px 0;
+  position:relative;          /* the track IS the container */
+}
+.pbar-track{
+  width:100%; height:100%;
+  position:relative;
+  background:rgba(255,255,255,.10);
+  border-radius:10px;
+  overflow:hidden;
+}
+/* safe-zone highlight band */
+.pbar-zone{
+  position:absolute; left:0; right:0;
+  background:rgba(255,255,255,.07);
+  pointer-events:none;
+}
+/* gradient fill — rises from bottom */
+.pbar-fill{
+  position:absolute; left:0; right:0; bottom:0;
+  border-radius:10px;
+  transition:height .8s cubic-bezier(.4,0,.2,1);
+}
+.pbar-fill.ok    {background:linear-gradient(to top,rgba(0,160,110,.7),rgba(0,255,184,.92));}
+.pbar-fill.warn  {background:linear-gradient(to top,rgba(180,120,20,.7),rgba(255,204,68,.92));}
+.pbar-fill.danger{background:linear-gradient(to top,rgba(140,20,10,.7),rgba(255,70,50,.92));}
+/* min/max dashed threshold lines */
+.pbar-dash{
+  position:absolute; left:0; right:0; height:1px;
+  background:repeating-linear-gradient(to right,rgba(255,255,255,.3) 0,rgba(255,255,255,.3) 4px,transparent 4px,transparent 7px);
+  pointer-events:none;
+}
+/* target tick — bright white notch */
+.pbar-tick{
+  position:absolute; left:0; right:0; height:2px;
+  background:rgba(255,255,255,.65);
+  pointer-events:none;
+  box-shadow:0 0 5px rgba(255,255,255,.5);
+}
+/* labels rendered INSIDE the track */
+.pbar-label-top{
+  position:absolute; top:5px; left:0; right:0;
+  text-align:center;
+  font-family:'Share Tech Mono',monospace; font-size:.82rem;
+  color:rgba(255,255,255,.55); line-height:1;
+  pointer-events:none;
+}
+.pbar-label-bot{
+  position:absolute; bottom:5px; left:0; right:0;
+  text-align:center;
+  font-family:'Share Tech Mono',monospace; font-size:.82rem;
+  color:rgba(255,255,255,.55); line-height:1;
+  pointer-events:none;
+}
+.pbar-label-tgt{
+  position:absolute; left:0; right:0;
+  text-align:center;
+  font-family:'Share Tech Mono',monospace; font-size:.86rem;
+  font-weight:600;
+  color:rgba(255,255,255,.82); line-height:1;
+  pointer-events:none;
+  transform:translateY(-50%);
+  text-shadow:0 0 8px rgba(0,0,0,.8);
+}
+
+/* value block below bar */
+.pbar-value-row{
+  display:flex;align-items:baseline;justify-content:center;gap:5px;flex-shrink:0;margin-top:5px;
+}
+.pbar-val {font-family:'Share Tech Mono',monospace;font-size:2.1rem;color:var(--text);letter-spacing:-.03em;line-height:1;}
+.pbar-unit{font-family:'Rajdhani',sans-serif;font-size:.82rem;font-weight:300;color:var(--sub);letter-spacing:.05em;}
+
+/* range + timestamp footers */
+.pcard-range{font-family:var(--head);font-size:.62rem;letter-spacing:.07em;color:var(--sub);text-align:center;}
+.pcard-ts{font-family:var(--mono);font-size:.56rem;letter-spacing:.05em;color:rgba(176,122,255,.6);text-align:center;margin-top:1px;}
+
+/* ── RIGHT: feeding ── */
+.col-feed{flex:0.65;min-width:0;display:flex;flex-direction:column;}
+.feed-stack{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;}
+.fcard{flex:1;min-height:0;background:var(--panel);border:1px solid var(--rim2);border-radius:13px;
+  padding:10px 12px;backdrop-filter:blur(8px);display:flex;align-items:center;gap:10px;position:relative;overflow:hidden;}
+.fcard::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,255,184,.04) 0%,transparent 55%);pointer-events:none;}
+.fcard-icon{font-size:1.7rem;line-height:1;flex-shrink:0;}
+.fcard-info{flex:1;min-width:0;}
+.fcard-name{font-family:var(--head);font-weight:700;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fcard-sub {font-family:var(--head);font-size:.65rem;letter-spacing:.04em;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* right side: elapsed on top, button below, timestamp at bottom */
+.fcard-right{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.fcard-elapsed{font-family:var(--mono);font-size:1.3rem;color:var(--teal);letter-spacing:-.01em;white-space:nowrap;text-align:center;}
+.fcard-elapsed.overdue{color:var(--amber);}
+.fcard-elapsed.urgent {color:var(--danger);animation:pdot 1s ease-in-out infinite;}
+.fcard-since{font-family:var(--head);font-size:.56rem;letter-spacing:.05em;color:var(--sub);text-transform:uppercase;text-align:center;white-space:nowrap;}
+.btn-feed{display:flex;align-items:center;justify-content:center;gap:4px;
+  background:rgba(0,255,184,.09);border:1px solid rgba(0,255,184,.28);color:var(--teal);
+  border-radius:8px;padding:6px 12px;font-family:var(--head);font-weight:700;font-size:.82rem;
+  letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap;
+  transition:background .16s,box-shadow .13s,transform .1s;}
+.btn-feed:active{background:rgba(0,255,184,.24);box-shadow:0 0 14px rgba(0,255,184,.35);transform:scale(.97);}
+
+/* ══ INFO STRIP ══ */
+.info-strip{display:flex;gap:9px;align-items:center;flex-shrink:0;padding-top:2px;}
+.ichip{background:var(--panelB);border:1px solid var(--rim);border-radius:7px;padding:5px 13px;backdrop-filter:blur(6px);}
+.ichip-l{font-family:var(--head);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sub);}
+.ichip-v{font-family:var(--mono);font-size:.88rem;color:var(--text);}
+
+/* ══ DRAWER ══ */
+.drawer-overlay{display:none;position:fixed;inset:0;z-index:50;background:rgba(1,6,12,.7);backdrop-filter:blur(5px);}
+.drawer-overlay.open{display:block;}
+.drawer{position:fixed;bottom:0;left:0;right:0;z-index:51;background:#050e1a;border-top:1px solid var(--rim);
+  border-radius:18px 18px 0 0;padding:14px 20px 32px;
+  transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  max-height:80vh;overflow-y:auto;display:flex;flex-direction:column;gap:22px;}
+.drawer.open{transform:translateY(0);}
+.drawer-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.14);margin:0 auto 6px;}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;}
+.drawer-head h2{font-family:var(--head);font-weight:700;font-size:.88rem;letter-spacing:.15em;text-transform:uppercase;color:var(--sub);}
+.btn-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:var(--sub);border-radius:6px;padding:5px 11px;
+  font-family:var(--head);font-weight:600;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+.dsec{font-family:var(--head);font-size:.63rem;letter-spacing:.22em;text-transform:uppercase;color:var(--sub);border-left:2px solid var(--rim);padding-left:8px;margin-bottom:10px;}
+
+/* sound cards */
+.sound-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.sound-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+.sound-card-head{display:flex;align-items:center;justify-content:space-between;}
+.sound-name{font-family:var(--head);font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+.sound-desc{font-family:var(--head);font-size:.6rem;color:var(--sub);letter-spacing:.05em;line-height:1.45;}
+.btn-play{background:rgba(0,212,240,.10);border:1px solid rgba(0,212,240,.28);color:var(--cyan);
+  border-radius:7px;padding:6px 13px;font-family:var(--head);font-weight:700;font-size:.72rem;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .16s;}
+.btn-play:active,.btn-play.playing{background:rgba(0,255,184,.18);border-color:rgba(0,255,184,.45);color:var(--teal);}
+.assign-row{display:flex;align-items:center;gap:7px;}
+.assign-label{font-family:var(--head);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sub);white-space:nowrap;}
+.assign-select{background:rgba(0,0,0,.5);border:1px solid var(--rim);color:var(--text);border-radius:6px;padding:4px 8px;font-family:var(--mono);font-size:.68rem;cursor:pointer;flex:1;}
+.assign-select:focus{outline:none;border-color:var(--cyan);}
+
+/* toggles + thresholds */
+.alert-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;}
+.alert-row{display:flex;flex-direction:column;gap:6px;}
+.alert-row label{font-family:var(--head);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--sub);}
+.alert-row input[type=number]{background:rgba(0,0,0,.5);border:1px solid var(--rim);color:var(--text);border-radius:7px;padding:6px 10px;font-family:var(--mono);font-size:.92rem;width:100%;}
+.alert-row input:focus{outline:none;border-color:var(--cyan);}
+.toggle-row{flex-direction:row !important;align-items:center;justify-content:space-between;}
+.toggle-label{font-family:var(--head);font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--sub);}
+.toggle{position:relative;width:42px;height:23px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.09);border-radius:23px;cursor:pointer;border:1px solid rgba(255,255,255,.11);transition:background .3s;}
+.toggle-slider::before{content:'';position:absolute;width:17px;height:17px;left:2px;bottom:2px;background:#888;border-radius:50%;transition:transform .3s,background .3s;}
+.toggle input:checked+.toggle-slider{background:rgba(0,212,240,.24);border-color:var(--cyan);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(19px);background:var(--cyan);}
+
+/* manual (test-kit only) */
+.manual-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+.mcard{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px 9px;cursor:pointer;user-select:none;transition:border-color .2s;}
+.mcard:active{border-color:rgba(0,212,240,.35);}
+.mcard-name{font-family:var(--head);font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sub);margin-bottom:5px;}
+.mcard-val {font-family:var(--mono);font-size:1.5rem;color:var(--text);}
+.mcard-unit{font-family:var(--head);font-size:.65rem;color:var(--sub);}
+.mcard-range{font-family:var(--head);font-size:.56rem;color:var(--sub);margin-top:4px;letter-spacing:.06em;}
+.mcard-bar-bg  {height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:5px;}
+.mcard-bar-fill{height:100%;border-radius:2px;transition:width .8s;}
+
+/* ══ MODAL ══ */
+.modal-ov{display:none;position:fixed;inset:0;z-index:200;background:rgba(1,6,12,.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;}
+.modal-ov.open{display:flex;}
+.modal{background:#060f1c;border:1px solid rgba(0,212,240,.38);border-radius:17px;padding:26px 30px;min-width:280px;box-shadow:0 0 60px rgba(0,100,200,.25);text-align:center;}
+.modal h3{font-family:var(--head);font-size:1rem;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-bottom:14px;}
+.modal input[type=number]{width:100%;background:rgba(0,0,0,.55);border:1px solid rgba(0,212,240,.3);color:var(--text);border-radius:9px;padding:11px;font-family:var(--mono);font-size:1.8rem;text-align:center;margin-bottom:14px;-moz-appearance:textfield;}
+.modal input:focus{outline:none;border-color:var(--cyan);}
+.modal-btns{display:flex;gap:9px;}
+.btn-save  {flex:1;padding:11px;border-radius:9px;border:none;cursor:pointer;font-family:var(--head);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;background:var(--cyan);color:var(--bg);}
+.btn-cancel{flex:1;padding:11px;border-radius:9px;cursor:pointer;font-family:var(--head);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;background:rgba(255,255,255,.07);color:var(--sub);border:1px solid rgba(255,255,255,.10);}
+</style>
+</head>
+<body>
+
+<!-- ANIMATED REEF CANVAS -->
+<canvas id="reef-canvas"></canvas>
+<div id="water-overlay"></div>
+<div id="scanlines"></div>
+
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="logo-block">
+      <div class="logo">REEF<span>·</span>OS</div>
+      <div class="logo-sub">Red Sea G2 XXL · Neptune Apex</div>
+    </div>
+    <div class="apex-bar">
+      <div id="apex-dot" class="apex-dot polling"></div>
+      <span id="apex-lbl" class="apex-lbl">Connecting…</span>
+      <input id="apex-ip" class="apex-ip-in" type="text" placeholder="192.168.1.xxx"/>
+      <button class="btn-xs" onclick="saveAndPoll()">Connect</button>
+      <span class="last-poll">Sync: <span id="last-sync">—</span></span>
+      <button class="btn-xs" onclick="pollApex()">↻</button>
+    </div>
+    <div class="top-right">
+      <span id="clock-time">--:--:--</span>
+      <span id="clock-date"></span>
+      <button class="drawer-btn" onclick="openDrawer()">☰ More</button>
+    </div>
+  </div>
+
+  <!-- ALERT BANNER -->
+  <div id="alert-banner" role="alert">
+    <span class="alert-icon" id="alert-icon">⚠️</span>
+    <div class="alert-text" id="alert-msg">Alert<small id="alert-sub">—</small></div>
+    <button class="btn-ack" onclick="ackAlert()">Silence</button>
+  </div>
+
+  <!-- MAIN ROW -->
+  <div class="main-row">
+    <div class="col-probes">
+      <div class="slabel">Live Apex Probes</div>
+      <div class="probe-grid" id="probe-grid"></div>
+    </div>
+    <div class="col-feed">
+      <div class="slabel">Feeding Log</div>
+      <div class="feed-stack" id="feed-stack"></div>
+    </div>
+  </div>
+
+  <!-- INFO STRIP -->
+  <div class="info-strip">
+    <div class="ichip"><div class="ichip-l">Tank</div><div class="ichip-v">Red Sea G2 XXL</div></div>
+    <div class="ichip"><div class="ichip-l">Controller</div><div class="ichip-v">Neptune Apex</div></div>
+    <div class="ichip"><div class="ichip-l">Trident</div><div class="ichip-v" id="trident-status" style="color:var(--sub)">Not detected</div></div>
+    <div class="ichip"><div class="ichip-l">API</div><div class="ichip-v" style="color:var(--sub);font-size:.62rem;">LAN only</div></div>
+    <div class="ichip" style="margin-left:auto;"><div class="ichip-l">Overall</div><div class="ichip-v" id="overall-status" style="color:var(--sub)">—</div></div>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="drawer" class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-head">
+    <h2>Settings &amp; More</h2>
+    <button class="btn-close" onclick="closeDrawer()">✕ Close</button>
+  </div>
+
+  <div>
+    <div class="dsec">🔊 Alert Sounds — Test &amp; Assign</div>
+    <div class="sound-grid">
+      <div class="sound-card" id="sc-warn">
+        <div class="sound-card-head">
+          <span class="sound-name" style="color:var(--amber);">⚠ Warn</span>
+          <button class="btn-play" onclick="testSound('warn')">▶ Play</button>
+        </div>
+        <div class="sound-desc">Urgent repeating dual-tone alarm · escalates in intensity · cannot be ignored</div>
+        <div class="assign-row">
+          <span class="assign-label">Assign:</span>
+          <select id="assign-warn" class="assign-select" onchange="saveAlertCfg()">
+            <option value="warn" selected>Warn (default)</option>
+            <option value="danger">Danger</option><option value="leak">Leak</option><option value="off">Off</option>
+          </select>
+        </div>
+      </div>
+      <div class="sound-card" id="sc-danger">
+        <div class="sound-card-head">
+          <span class="sound-name" style="color:var(--danger);">🚨 Danger</span>
+          <button class="btn-play" onclick="testSound('danger')">▶ Play</button>
+        </div>
+        <div class="sound-desc">Multi-layered dissonant alarm · dual oscillators · maximum urgency</div>
+        <div class="assign-row">
+          <span class="assign-label">Assign:</span>
+          <select id="assign-danger" class="assign-select" onchange="saveAlertCfg()">
+            <option value="warn">Warn</option>
+            <option value="danger" selected>Danger (default)</option><option value="leak">Leak</option><option value="off">Off</option>
+          </select>
+        </div>
+      </div>
+      <div class="sound-card" id="sc-leak">
+        <div class="sound-card-head">
+          <span class="sound-name" style="color:var(--cyan);">🌊 Leak</span>
+          <button class="btn-play" onclick="testSound('leak')">▶ Play</button>
+        </div>
+        <div class="sound-desc">Sweeping siren pattern · unmistakable water emergency signature</div>
+        <div class="assign-row">
+          <span class="assign-label">Assign:</span>
+          <select id="assign-leak" class="assign-select" onchange="saveAlertCfg()">
+            <option value="warn">Warn</option>
+            <option value="danger">Danger</option><option value="leak" selected>Leak (default)</option><option value="off">Off</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="alert-grid" style="margin-top:14px;">
+      <div class="alert-row toggle-row"><span class="toggle-label">🔊 All Sounds</span><label class="toggle"><input type="checkbox" id="al-snd" checked onchange="saveAlertCfg()"/><span class="toggle-slider"></span></label></div>
+      <div class="alert-row toggle-row"><span class="toggle-label">🌡️ Temp Alerts</span><label class="toggle"><input type="checkbox" id="al-ten" checked onchange="saveAlertCfg()"/><span class="toggle-slider"></span></label></div>
+      <div class="alert-row toggle-row"><span class="toggle-label">⚗️ pH Alerts</span><label class="toggle"><input type="checkbox" id="al-pen" checked onchange="saveAlertCfg()"/><span class="toggle-slider"></span></label></div>
+      <div class="alert-row toggle-row"><span class="toggle-label">🌊 Leak Detector</span><label class="toggle"><input type="checkbox" id="al-leak" checked onchange="saveAlertCfg()"/><span class="toggle-slider"></span></label></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dsec">⚙️ Alert Thresholds</div>
+    <div class="alert-grid">
+      <div class="alert-row"><label>Temp Low (°F)</label><input type="number" id="al-tlo"  step="0.1"  value="76.0" onchange="saveAlertCfg()"/></div>
+      <div class="alert-row"><label>Temp High (°F)</label><input type="number" id="al-thi"  step="0.1"  value="80.0" onchange="saveAlertCfg()"/></div>
+      <div class="alert-row"><label>Temp Critical (°F)</label><input type="number" id="al-tcrit" step="0.1"  value="82.0" onchange="saveAlertCfg()"/></div>
+      <div class="alert-row"><label>pH Low</label><input type="number" id="al-plo"  step="0.01" value="7.90"  onchange="saveAlertCfg()"/></div>
+      <div class="alert-row"><label>pH High</label><input type="number" id="al-phi"  step="0.01" value="8.50"  onchange="saveAlertCfg()"/></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dsec">🧪 Manual Test Kit — Tap to update</div>
+    <div class="manual-grid" id="manual-grid"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-ov" class="modal-ov">
+  <div class="modal">
+    <h3 id="modal-title">Edit Value</h3>
+    <input type="number" id="modal-inp" step="any"/>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save"   onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   REEF CANVAS — animated fish + coral
+════════════════════════════════════════ */
+const canvas = document.getElementById('reef-canvas');
+const ctx2d  = canvas.getContext('2d');
+
+function resizeCanvas(){
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ── Fish species definitions ──
+// Each fish is drawn procedurally: body ellipse + tail + fins + eye + stripe details
+const SPECIES = [
+  // Clownfish — orange/white stripes
+  { name:'clown', w:38, h:22, bodyCol:'#ff7020', stripeCol:'#fff', finCol:'#ff5500', speed:0.7, wobble:0.06 },
+  // Blue Tang — vibrant blue + yellow tail
+  { name:'tang',  w:48, h:28, bodyCol:'#1a6eff', stripeCol:'#ffdd00', finCol:'#0055cc', speed:1.1, wobble:0.05 },
+  // Royal Gramma — purple + yellow split
+  { name:'gramma',w:32, h:18, bodyCol:'#8844ff', stripeCol:'#ffdd00', finCol:'#6622cc', speed:0.85, wobble:0.07 },
+  // Tailspot Blenny — small, brownish with spots
+  { name:'blenny',w:28, h:14, bodyCol:'#8B6a3e', stripeCol:'#c8a06a', finCol:'#6b4e2e', speed:0.55, wobble:0.10 },
+  // Dartfish — slender, pale blue + orange nose
+  { name:'dart',  w:44, h:11, bodyCol:'#88ccff', stripeCol:'#ff8844', finCol:'#66aaee', speed:1.3, wobble:0.04 },
+];
+
+// ── Coral silhouette shapes (foreground) ──
+const CORALS = [];
+function buildCorals(){
+  CORALS.length = 0;
+  const W = canvas.width, H = canvas.height;
+  // Branching corals left
+  for(let i=0;i<6;i++){
+    CORALS.push({
+      x: W*0.02 + i*W*0.06,
+      y: H,
+      type: 'branch',
+      h: 80+Math.random()*120,
+      col: ['#003344','#002233','#001a2a','#004455'][i%4],
+      scale: 0.7+Math.random()*0.6
+    });
+  }
+  // Fan corals right
+  for(let i=0;i<5;i++){
+    CORALS.push({
+      x: W*0.62 + i*W*0.07,
+      y: H,
+      type: 'fan',
+      h: 60+Math.random()*100,
+      col: ['#003322','#002211','#004433'][i%3],
+      scale: 0.6+Math.random()*0.7
+    });
+  }
+}
+
+function drawCoralBranch(x, y, angle, length, depth, col, scale){
+  if(depth===0||length<4)return;
+  const ex = x + Math.cos(angle)*length;
+  const ey = y - Math.sin(angle)*length;
+  ctx2d.beginPath();
+  ctx2d.moveTo(x,y);
+  ctx2d.lineTo(ex,ey);
+  ctx2d.strokeStyle=col;
+  ctx2d.lineWidth=Math.max(1,(depth+1)*1.4*scale);
+  ctx2d.stroke();
+  drawCoralBranch(ex,ey,angle-0.45,length*0.68,depth-1,col,scale);
+  drawCoralBranch(ex,ey,angle+0.45,length*0.68,depth-1,col,scale);
+  if(depth>2)drawCoralBranch(ex,ey,angle,length*0.55,depth-1,col,scale);
+}
+
+function drawFanCoral(x, y, h, col, scale){
+  // draw several arched strands
+  const strands=12;
+  for(let i=0;i<strands;i++){
+    const angle = -Math.PI*0.8 + (Math.PI*0.6/(strands-1))*i;
+    const len   = h*scale*(0.7+0.3*Math.sin(i));
+    ctx2d.beginPath();
+    ctx2d.moveTo(x,y);
+    const cx1=x+Math.cos(angle)*len*0.5, cy1=y-len*0.4;
+    const ex=x+Math.cos(angle)*len,      ey=y-len*0.9;
+    ctx2d.quadraticCurveTo(cx1,cy1,ex,ey);
+    ctx2d.strokeStyle=col;
+    ctx2d.lineWidth=1.2*scale;
+    ctx2d.stroke();
+  }
+}
+
+function drawCorals(){
+  CORALS.forEach(c=>{
+    ctx2d.save();
+    ctx2d.globalAlpha=0.55;
+    if(c.type==='branch'){
+      drawCoralBranch(c.x,c.y,Math.PI/2,c.h*0.45,5,c.col,c.scale);
+    } else {
+      drawFanCoral(c.x,c.y,c.h,c.col,c.scale);
+    }
+    ctx2d.restore();
+  });
+}
+
+// ── Fish instances ──
+const FISH = [];
+function spawnFish(){
+  FISH.length=0;
+  const W=canvas.width, H=canvas.height;
+  const count=14;
+  for(let i=0;i<count;i++){
+    const sp = SPECIES[i%SPECIES.length];
+    const dir= Math.random()<0.5?1:-1;
+    FISH.push({
+      sp,
+      x:    Math.random()*W,
+      y:    H*0.08 + Math.random()*H*0.72,
+      dir,
+      speed: (sp.speed + Math.random()*0.5) * (dir===1?1:-1),
+      wobbleOffset: Math.random()*Math.PI*2,
+      wobbleSpeed:  0.04+Math.random()*0.03,
+      t:    Math.random()*1000,
+      depth:0.3+Math.random()*0.7,   // parallax depth scale
+      alpha:0.55+Math.random()*0.35,
+    });
+  }
+}
+
+function drawFish(fish, t){
+  const {sp,x,y,dir,wobbleOffset,depth,alpha} = fish;
+  const W=sp.w*depth, H=sp.h*depth;
+  const wobble = Math.sin(t*fish.wobbleSpeed*60+wobbleOffset)*sp.wobble*H;
+
+  ctx2d.save();
+  ctx2d.globalAlpha=alpha;
+  ctx2d.translate(x,y+wobble);
+  if(dir>0)ctx2d.scale(-1,1);
+
+  // body
+  ctx2d.beginPath();
+  ctx2d.ellipse(0,0,W*0.5,H*0.5,0,0,Math.PI*2);
+  ctx2d.fillStyle=sp.bodyCol;
+  ctx2d.fill();
+
+  // species-specific markings
+  if(sp.name==='clown'){
+    // two white vertical bands
+    for(const bx of [-W*0.12, W*0.12]){
+      ctx2d.beginPath();
+      ctx2d.ellipse(bx,0,W*0.09,H*0.46,0,0,Math.PI*2);
+      ctx2d.fillStyle='rgba(255,255,255,0.72)';
+      ctx2d.fill();
+    }
+  } else if(sp.name==='tang'){
+    // yellow tail spot
+    ctx2d.beginPath();
+    ctx2d.ellipse(W*0.38,0,W*0.14,H*0.3,0,0,Math.PI*2);
+    ctx2d.fillStyle=sp.stripeCol;
+    ctx2d.fill();
+  } else if(sp.name==='gramma'){
+    // yellow rear half
+    ctx2d.beginPath();
+    ctx2d.ellipse(W*0.22,0,W*0.3,H*0.48,0,0,Math.PI*2);
+    ctx2d.fillStyle=sp.stripeCol;
+    ctx2d.fill();
+    // re-draw front purple half on top
+    ctx2d.beginPath();
+    ctx2d.ellipse(-W*0.08,0,W*0.38,H*0.5,0,0,Math.PI*2);
+    ctx2d.fillStyle=sp.bodyCol;
+    ctx2d.fill();
+  } else if(sp.name==='dart'){
+    // orange nose/head
+    ctx2d.beginPath();
+    ctx2d.ellipse(-W*0.32,0,W*0.2,H*0.48,0,0,Math.PI*2);
+    ctx2d.fillStyle=sp.stripeCol;
+    ctx2d.fill();
+  }
+
+  // dorsal fin
+  ctx2d.beginPath();
+  ctx2d.moveTo(-W*0.2,-H*0.5);
+  ctx2d.quadraticCurveTo(W*0.05,-H*0.9,W*0.25,-H*0.5);
+  ctx2d.fillStyle=sp.finCol;
+  ctx2d.globalAlpha=alpha*0.8;
+  ctx2d.fill();
+
+  // tail
+  ctx2d.beginPath();
+  ctx2d.moveTo(W*0.42,0);
+  ctx2d.lineTo(W*0.72,-H*0.45);
+  ctx2d.lineTo(W*0.72, H*0.45);
+  ctx2d.closePath();
+  ctx2d.fillStyle=sp.finCol;
+  ctx2d.globalAlpha=alpha*0.9;
+  ctx2d.fill();
+
+  // pectoral fin
+  ctx2d.beginPath();
+  ctx2d.ellipse(W*0.05,H*0.2,W*0.18,H*0.14,-0.4,0,Math.PI*2);
+  ctx2d.fillStyle=sp.finCol;
+  ctx2d.globalAlpha=alpha*0.65;
+  ctx2d.fill();
+
+  // eye
+  ctx2d.globalAlpha=alpha;
+  ctx2d.beginPath();
+  ctx2d.arc(-W*0.27,-H*0.06,H*0.11,0,Math.PI*2);
+  ctx2d.fillStyle='#000';
+  ctx2d.fill();
+  ctx2d.beginPath();
+  ctx2d.arc(-W*0.265,-H*0.065,H*0.05,0,Math.PI*2);
+  ctx2d.fillStyle='rgba(255,255,255,0.7)';
+  ctx2d.fill();
+
+  ctx2d.restore();
+}
+
+// ── Particle bubbles ──
+const PART=[];
+function spawnParticles(){
+  PART.length=0;
+  for(let i=0;i<40;i++){
+    PART.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:1+Math.random()*3,
+      vy:-(0.2+Math.random()*0.5),
+      vx:(Math.random()-0.5)*0.2,
+      alpha:0.1+Math.random()*0.25,
+    });
+  }
+}
+
+let lastT=0;
+function reefLoop(ts){
+  const t=ts/1000;
+  const dt=t-lastT; lastT=t;
+  const W=canvas.width, H=canvas.height;
+
+  // clear
+  ctx2d.clearRect(0,0,W,H);
+
+  // deep water gradient background
+  const grad=ctx2d.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#020d1a');
+  grad.addColorStop(0.4,'#031525');
+  grad.addColorStop(1,'#010810');
+  ctx2d.fillStyle=grad;
+  ctx2d.fillRect(0,0,W,H);
+
+  // subtle caustic light rays from surface
+  ctx2d.save();
+  ctx2d.globalAlpha=0.03;
+  for(let i=0;i<8;i++){
+    const rx=W*(0.1+i*0.11);
+    const gradient=ctx2d.createLinearGradient(rx,0,rx+40,H);
+    gradient.addColorStop(0,'rgba(80,200,255,0.6)');
+    gradient.addColorStop(1,'rgba(80,200,255,0)');
+    ctx2d.beginPath();
+    ctx2d.moveTo(rx-20,0);
+    ctx2d.lineTo(rx+30+Math.sin(t*0.3+i)*20,H);
+    ctx2d.lineTo(rx+60+Math.sin(t*0.3+i)*20,H);
+    ctx2d.lineTo(rx+20,0);
+    ctx2d.fillStyle=gradient;
+    ctx2d.fill();
+  }
+  ctx2d.restore();
+
+  // bubbles
+  PART.forEach(p=>{
+    p.y+=p.vy;p.x+=p.vx;
+    if(p.y<-10){p.y=H+10;p.x=Math.random()*W;}
+    ctx2d.beginPath();
+    ctx2d.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx2d.strokeStyle=`rgba(120,210,255,${p.alpha})`;
+    ctx2d.lineWidth=0.8;
+    ctx2d.stroke();
+  });
+
+  // draw fish (back-to-front by depth)
+  const sorted=[...FISH].sort((a,b)=>a.depth-b.depth);
+  sorted.forEach(fish=>{
+    fish.t+=dt;
+    fish.x+=fish.speed*(fish.depth*0.6+0.4);
+    if(fish.x>W+80)  fish.x=-80;
+    if(fish.x<-80)   fish.x=W+80;
+    drawFish(fish,fish.t);
+  });
+
+  // coral silhouettes (foreground)
+  drawCorals();
+
+  requestAnimationFrame(reefLoop);
+}
+
+// ── Init canvas ──
+buildCorals();
+spawnFish();
+spawnParticles();
+requestAnimationFrame(reefLoop);
+
+/* ════════════════════════════════════════
+   DATA DEFINITIONS
+════════════════════════════════════════ */
+// ALL SIX are Apex live probes — Temp/pH/Sal via standard modules, Alk/Ca/Mg via Trident
+const PROBES = [
+  { id:'temp', icon:'🌡️', name:'Temperature', unit:'°F',  apexProbe:'Temp',  decimals:1, default:78.4, target:78,   min:76,   max:80,   absMin:70,  absMax:90,   alertable:true },
+  { id:'ph',   icon:'⚗️', name:'pH',          unit:'',    apexProbe:'pH',    decimals:2, default:8.22, target:8.2,  min:8.0,  max:8.4,  absMin:7.5, absMax:9.0,  alertable:true },
+  { id:'sal',  icon:'🌊', name:'Salinity',    unit:'ppt', apexProbe:'Sal',   decimals:1, default:35.1, target:35,   min:34,   max:36,   absMin:28,  absMax:42 },
+  { id:'alk',  icon:'💧', name:'Alkalinity',  unit:'dKH', apexProbe:'Alk_T', decimals:1, default:9.2,  target:9,    min:8,    max:11,   absMin:5,   absMax:16,   trident:true },
+  { id:'cal',  icon:'🪨', name:'Calcium',     unit:'ppm', apexProbe:'Ca_T',  decimals:0, default:418,  target:420,  min:380,  max:450,  absMin:300, absMax:550,  trident:true },
+  { id:'mag',  icon:'⚡', name:'Magnesium',   unit:'ppm', apexProbe:'Mg_T',  decimals:0, default:1340, target:1350, min:1250, max:1400, absMin:900, absMax:1700, trident:true },
+];
+
+// Manual test-kit only parameters (no Apex probe for these)
+const MANUALS = [
+  { id:'no3', name:'Nitrate',   unit:'ppm', decimals:1, default:4.8,   target:5,    min:0, max:10,  absMin:0, absMax:50 },
+  { id:'po4', name:'Phosphate', unit:'ppm', decimals:3, default:0.048, target:0.05, min:0, max:0.1, absMin:0, absMax:1 },
+  { id:'nh3', name:'Ammonia',   unit:'ppm', decimals:2, default:0,     target:0,    min:0, max:0.25,absMin:0, absMax:5 },
+];
+
+const FEEDS = [
+  { id:'fish',  icon:'🐟', name:'Fish',         sub:'Pellets / Frozen',        warnH:24,  dangerH:36 },
+  { id:'coral', icon:'🪸', name:'Coral',        sub:'Broadcast / Target Feed', warnH:48,  dangerH:72 },
+  { id:'pods',  icon:'🦐', name:'Pods & Phyto', sub:'Copepods / Phytoplankton',warnH:72,  dangerH:120 },
+  { id:'chaeto',icon:'🌿', name:'Chaeto',       sub:'Macroalgae Check',        warnH:168, dangerH:240 },
+];
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+const SK={p:'reef_p7',m:'reef_m7',f:'reef_f7',ip:'reef_apex7',al:'reef_al7'};
+let PV={},MV={},FT={},apexIp='',pollTimer=null,
+    editId=null,editManual=false,tridentOk=false,
+    alertAcked=false,alertLoop=null;
+
+function loadState(){
+  try{const r=localStorage.getItem(SK.p);if(r)PV=JSON.parse(r);}catch(e){}
+  try{const r=localStorage.getItem(SK.m);if(r)MV=JSON.parse(r);}catch(e){}
+  try{const r=localStorage.getItem(SK.f);if(r)FT=JSON.parse(r);}catch(e){}
+  PROBES.forEach(p=>{if(PV[p.id]==null)PV[p.id]=p.default;});
+  MANUALS.forEach(p=>{if(MV[p.id]==null)MV[p.id]=p.default;});
+  FEEDS.forEach(f=>{if(FT[f.id]===undefined)FT[f.id]=null;});
+  apexIp=localStorage.getItem(SK.ip)||'';
+  if(apexIp)document.getElementById('apex-ip').value=apexIp;
+  try{
+    const c=JSON.parse(localStorage.getItem(SK.al)||'{}');
+    ['tlo','thi','tcrit','plo','phi'].forEach(k=>{if(c[k]!=null)document.getElementById('al-'+k).value=c[k];});
+    ['snd','ten','pen','leak'].forEach(k=>{if(c[k]!=null)document.getElementById('al-'+k).checked=c[k];});
+    ['warn','danger','leak'].forEach(k=>{const el=document.getElementById('assign-'+k);if(el&&c['assign_'+k]!=null)el.value=c['assign_'+k];});
+  }catch(e){}
+}
+function saveAlertCfg(){
+  const o={};
+  ['tlo','thi','tcrit','plo','phi'].forEach(k=>o[k]=+document.getElementById('al-'+k).value);
+  ['snd','ten','pen','leak'].forEach(k=>o[k]=document.getElementById('al-'+k).checked);
+  ['warn','danger','leak'].forEach(k=>{const el=document.getElementById('assign-'+k);if(el)o['assign_'+k]=el.value;});
+  localStorage.setItem(SK.al,JSON.stringify(o));
+  checkAlerts();
+}
+function getCfg(){
+  const o={};
+  ['tlo','thi','tcrit','plo','phi'].forEach(k=>o[k]=+document.getElementById('al-'+k).value);
+  ['snd','ten','pen','leak'].forEach(k=>o[k]=document.getElementById('al-'+k).checked);
+  ['warn','danger','leak'].forEach(k=>{const el=document.getElementById('assign-'+k);o['assign_'+k]=el?el.value:k;});
+  return o;
+}
+function resolveSound(t){return getCfg()['assign_'+t]||t;}
+
+/* ════════════════════════════════════════
+   DRAWER
+════════════════════════════════════════ */
+function openDrawer(){document.getElementById('drawer-overlay').classList.add('open');document.getElementById('drawer').classList.add('open');}
+function closeDrawer(){document.getElementById('drawer-overlay').classList.remove('open');document.getElementById('drawer').classList.remove('open');}
+
+/* ════════════════════════════════════════
+   AUDIO ENGINE — aggressive tones
+════════════════════════════════════════ */
+let actx=null;
+function getACtx(){
+  if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
+  if(actx.state==='suspended')actx.resume();
+  return actx;
+}
+
+/*  WARN: rapid dual-tone beeps, alternating 880/660 Hz, 8 pulses
+    Creates a hard-to-ignore alert cadence                          */
+function playWarn(ctx){
+  let t=ctx.currentTime+.02;
+  const freqs=[880,660,880,660,880,660,880,660];
+  freqs.forEach(f=>{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type='square'; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(.35,t+.02);
+    g.gain.setValueAtTime(.35,t+.08);
+    g.gain.linearRampToValueAtTime(0,t+.12);
+    o.start(t);o.stop(t+.14);
+    t+=.16;
+  });
+}
+
+/*  DANGER: layered dissonant dual-oscillator alarm (880+940 Hz = rough beating)
+    Repeats 5 times with a rising amplitude sweep. Physically urgent.           */
+function playDanger(ctx){
+  let t=ctx.currentTime+.02;
+  for(let rep=0;rep<5;rep++){
+    [880,940,1020].forEach(f=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sawtooth'; o.frequency.value=f;
+      const vol=.18+rep*.06;
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(vol,t+.015);
+      g.gain.setValueAtTime(vol,t+.09);
+      g.gain.linearRampToValueAtTime(0,t+.12);
+      o.start(t);o.stop(t+.13);
+    });
+    t+=.18;
+  }
+  // Sweep tail
+  const sweep=ctx.createOscillator(), sg=ctx.createGain();
+  sweep.connect(sg);sg.connect(ctx.destination);
+  sweep.type='sawtooth';
+  sweep.frequency.setValueAtTime(400,t);
+  sweep.frequency.linearRampToValueAtTime(1400,t+.4);
+  sg.gain.setValueAtTime(.22,t);
+  sg.gain.linearRampToValueAtTime(0,t+.4);
+  sweep.start(t);sweep.stop(t+.42);
+}
+
+/*  LEAK: unmistakable water-emergency siren — sweeping whoop pattern × 3
+    Low→high sweep with dual oscillator stack, hard to sleep through            */
+function playLeak(ctx){
+  let t=ctx.currentTime+.02;
+  for(let rep=0;rep<3;rep++){
+    // Primary whoop
+    [1,1.25].forEach(mult=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type=mult===1?'sawtooth':'sine';
+      o.frequency.setValueAtTime(400*mult,t);
+      o.frequency.exponentialRampToValueAtTime(1200*mult,t+.5);
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(.25,t+.05);
+      g.gain.setValueAtTime(.25,t+.45);
+      g.gain.linearRampToValueAtTime(0,t+.55);
+      o.start(t);o.stop(t+.56);
+    });
+    t+=.65;
+    // Short stab
+    const o2=ctx.createOscillator(), g2=ctx.createGain();
+    o2.connect(g2);g2.connect(ctx.destination);
+    o2.type='square';o2.frequency.value=1100;
+    g2.gain.setValueAtTime(.3,t);
+    g2.gain.linearRampToValueAtTime(0,t+.12);
+    o2.start(t);o2.stop(t+.13);
+    t+=.25;
+  }
+}
+
+const TONE_FNS={warn:playWarn,danger:playDanger,leak:playLeak};
+
+function playTone(type){
+  try{
+    const ctx=getACtx();
+    (TONE_FNS[type]||TONE_FNS.warn)(ctx);
+  }catch(e){console.warn('[audio]',e);}
+}
+
+function testSound(type){
+  const btn=document.querySelector(`#sc-${type} .btn-play`);
+  if(btn){btn.classList.add('playing');btn.textContent='♪ Playing…';setTimeout(()=>{btn.classList.remove('playing');btn.textContent='▶ Play';},2200);}
+  playTone(type);
+}
+
+const LOOP_INTERVALS={warn:2800,danger:2200,leak:3200};
+function startLoop(type){
+  if(alertLoop)return;
+  const resolved=resolveSound(type);
+  if(resolved==='off')return;
+  playTone(resolved);
+  alertLoop=setInterval(()=>playTone(resolved),LOOP_INTERVALS[resolved]||2800);
+}
+function stopLoop(){if(alertLoop){clearInterval(alertLoop);alertLoop=null;}}
+
+/* ════════════════════════════════════════
+   ALERTS
+════════════════════════════════════════ */
+function checkAlerts(){
+  const c=getCfg(),alerts=[];
+  const temp=PV.temp,ph=PV.ph;
+  if(c.ten){
+    if(temp>=c.tcrit)           alerts.push({icon:'🌡️',msg:`CRITICAL: Temp ${temp.toFixed(1)}°F`,sub:'Check chiller/heater immediately',snd:'danger',lvl:2});
+    else if(temp>c.thi||temp<c.tlo) alerts.push({icon:'🌡️',msg:`Temp Out of Range: ${temp.toFixed(1)}°F`,sub:`Target ${c.tlo}–${c.thi}°F`,snd:'warn',lvl:1});
+  }
+  if(c.pen&&(ph<c.plo||ph>c.phi)) alerts.push({icon:'⚗️',msg:`pH Out of Range: ${ph.toFixed(2)}`,sub:`Target ${c.plo}–${c.phi}`,snd:'warn',lvl:1});
+  if(c.leak&&PV.leak==='OPEN')    alerts.push({icon:'🌊',msg:'WATER LEAK DETECTED',sub:'Apex leak sensor triggered — check sump immediately',snd:'leak',lvl:2});
+  const banner=document.getElementById('alert-banner');
+  if(!alerts.length){banner.classList.remove('visible');stopLoop();alertAcked=false;return;}
+  const top=alerts.find(a=>a.lvl===2)||alerts[0];
+  document.getElementById('alert-icon').textContent=top.icon;
+  document.getElementById('alert-msg').childNodes[0].textContent=top.msg;
+  document.getElementById('alert-sub').textContent=top.sub+(alerts.length>1?` (+${alerts.length-1} more)`:'');
+  banner.classList.add('visible');
+  if(c.snd&&!alertAcked)startLoop(top.snd);
+}
+function ackAlert(){alertAcked=true;stopLoop();document.getElementById('alert-banner').style.animation='none';}
+
+/* ════════════════════════════════════════
+   APEX POLL
+════════════════════════════════════════ */
+function saveAndPoll(){apexIp=document.getElementById('apex-ip').value.trim();localStorage.setItem(SK.ip,apexIp);pollApex();}
+function setApexSt(st,msg){
+  const d=document.getElementById('apex-dot'),l=document.getElementById('apex-lbl');
+  d.className='apex-dot '+st;l.className='apex-lbl '+st;l.textContent=msg;
+}
+async function pollApex(){
+  if(!apexIp){setApexSt('offline','No Apex IP');return;}
+  setApexSt('polling','Polling…');
+  try{
+    const res=await fetch(`http://${apexIp}/status.json`,{signal:AbortSignal.timeout(8000)});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const probes=data.istat||data||[];
+    let trit=0;
+    probes.forEach(probe=>{
+      const name=(probe.name||'').trim();
+      const found=PROBES.find(p=>p.apexProbe&&p.apexProbe.toLowerCase()===name.toLowerCase());
+      if(found){const n=parseFloat(probe.value);if(!isNaN(n)){PV[found.id]=n;if(found.trident){trit++;PV[found.id+'_ts']=Date.now();}}}
+      if(/leak|water.?level/i.test(name))PV.leak=String(probe.value).toUpperCase().includes('OPEN')?'OPEN':'CLOSED';
+    });
+    tridentOk=trit>0;
+    localStorage.setItem(SK.p,JSON.stringify(PV));
+    setApexSt('online','Apex Online');
+    document.getElementById('last-sync').textContent=new Date().toLocaleTimeString();
+    const ts=document.getElementById('trident-status');
+    ts.textContent=tridentOk?'Connected · Live':'Not detected';
+    ts.style.color=tridentOk?'var(--teal)':'var(--sub)';
+    renderProbes();checkAlerts();updateOverall();
+  }catch(err){setApexSt('offline','Unreachable');console.warn('[Apex]',err.message);}
+}
+function startPollLoop(){if(pollTimer)clearInterval(pollTimer);pollTimer=setInterval(pollApex,30000);}
+
+/* ════════════════════════════════════════
+   HELPERS + DONUT
+════════════════════════════════════════ */
+function getSt(mn,mx,amn,amx,v){if(v<mn||v>mx){if(v<amn||v>amx)return'danger';return'warn';}return'ok';}
+function pct(amn,amx,v){return Math.min(100,Math.max(0,((v-amn)/(amx-amn))*100));}
+function fmt(d,v){return Number(v).toFixed(d);}
+
+/* ════════════════════════════════════════
+   BAR GAUGE — pure CSS divs
+   The .pcard is display:flex flex-direction:column with a defined
+   height from the grid. .pbar-outer has flex:1 min-height:0,
+   and .pbar-track has height:100% which resolves correctly because
+   its parent (.pbar-center) is also display:flex align-items:stretch,
+   giving it a real pixel height to work against.
+════════════════════════════════════════ */
+function buildBar(el, val, absMin, absMax, min, max, target, status, valStr, unitStr){
+  const fillPct   = Math.min(100, Math.max(0, ((val    - absMin) / (absMax - absMin)) * 100));
+  const targetPct = Math.min(96,  Math.max(4,  ((target - absMin) / (absMax - absMin)) * 100));
+  const minPct    = Math.min(100, Math.max(0,  ((min    - absMin) / (absMax - absMin)) * 100));
+  const maxPct    = Math.min(100, Math.max(0,  ((max    - absMin) / (absMax - absMin)) * 100));
+  const zoneH     = Math.max(0, maxPct - minPct);
+
+  el.className = 'pbar-outer';
+  el.innerHTML = `
+    <div class="pbar-track">
+      <!-- safe zone band between min and max -->
+      <div class="pbar-zone" style="bottom:${minPct}%;height:${zoneH}%;"></div>
+      <!-- fill rising from bottom -->
+      <div class="pbar-fill ${status}" style="height:${fillPct}%;"></div>
+      <!-- min threshold dash -->
+      <div class="pbar-dash" style="bottom:${minPct}%;"></div>
+      <!-- max threshold dash -->
+      <div class="pbar-dash" style="bottom:${maxPct}%;"></div>
+      <!-- target tick -->
+      <div class="pbar-tick" style="bottom:${targetPct}%;"></div>
+      <!-- inside labels -->
+      <div class="pbar-label-top">${absMax}${unitStr}</div>
+      <div class="pbar-label-tgt" style="bottom:${targetPct}%;">${target}</div>
+      <div class="pbar-label-bot">${absMin}${unitStr}</div>
+    </div>
+  `;
+}
+
+function fmtTs(ts){
+  if(!ts)return'No reading yet';
+  const diff=Math.floor((Date.now()-ts)/60000);
+  if(diff<1)return'Tested just now';
+  if(diff<60)return`Tested ${diff}m ago`;
+  const h=Math.floor(diff/60),m=diff%60;
+  return`Tested ${h}h${m>0?' '+m+'m':''} ago`;
+}
+
+/* ════════════════════════════════════════
+   RENDER — PROBES
+════════════════════════════════════════ */
+function renderProbes(){
+  const grid=document.getElementById('probe-grid');
+  PROBES.forEach(p=>{
+    const v=PV[p.id], st=getSt(p.min,p.max,p.absMin,p.absMax,v);
+    const isTriden=!!p.trident;
+    const pipClass=isTriden?'trident-pip':'live-pip';
+    const srcLabel=isTriden?'Trident Probe':'Apex Probe';
+
+    let card=document.getElementById('pc-'+p.id);
+    if(!card){
+      card=document.createElement('div');
+      card.id='pc-'+p.id;
+      card.onclick=()=>openModal(p.id,false);
+      grid.appendChild(card);
+    }
+    card.className=`pcard status-${st}`;
+
+    const barId = 'bar-'+p.id;
+    const tsRow = isTriden
+      ? `<div class="pcard-ts">⬡ ${fmtTs(PV[p.id+'_ts'])}</div>`
+      : '';
+
+    card.innerHTML=`
+      <div class="pcard-label">
+        <span class="pcard-icon">${p.icon}</span>
+        <span class="pcard-name-text">${p.name}</span>
+        <span class="pcard-badge badge-${st}">${st.toUpperCase()}</span>
+      </div>
+      <div class="pcard-source">
+        <span class="${pipClass}"></span>${srcLabel}
+      </div>
+      <div id="${barId}" class="pbar-outer"></div>
+      <div class="pbar-value-row">
+        <span class="pbar-val">${fmt(p.decimals,v)}</span>
+        <span class="pbar-unit">${p.unit}</span>
+      </div>
+      <div class="pcard-range">Target ${p.target}${p.unit} · ${p.min}–${p.max}</div>
+      ${tsRow}
+    `;
+    buildBar(document.getElementById(barId), v, p.absMin, p.absMax, p.min, p.max, p.target, st, fmt(p.decimals,v), p.unit);
+  });
+}
+
+/* ════════════════════════════════════════
+   RENDER — MANUALS
+════════════════════════════════════════ */
+function renderManuals(){
+  const grid=document.getElementById('manual-grid');
+  grid.innerHTML='';
+  MANUALS.forEach(p=>{
+    const v=MV[p.id],st=getSt(p.min,p.max,p.absMin,p.absMax,v),w=pct(p.absMin,p.absMax,v);
+    const col={ok:'var(--ok)',warn:'var(--warn)',danger:'var(--danger)'}[st];
+    const card=document.createElement('div');
+    card.className='mcard';card.onclick=()=>openModal(p.id,true);
+    card.innerHTML=`
+      <div class="mcard-name">${p.name}</div>
+      <span class="mcard-val">${fmt(p.decimals,v)}</span><span class="mcard-unit"> ${p.unit}</span>
+      <div class="mcard-bar-bg"><div class="mcard-bar-fill" style="width:${w}%;background:${col}"></div></div>
+      <div class="mcard-range">Target ${p.target} · ${p.min}–${p.max}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+/* ════════════════════════════════════════
+   RENDER — FEEDING
+════════════════════════════════════════ */
+function elStr(ts){if(ts==null)return'Never';const h=Math.floor((Date.now()-ts)/3600000),m=Math.floor(((Date.now()-ts)%3600000)/60000);if(h>=48)return`${Math.floor(h/24)}d ${h%24}h`;if(h>=1)return`${h}h ${m}m`;return`${m}m`;}
+function fCls(f,ts){if(ts==null)return'urgent';const h=(Date.now()-ts)/3600000;if(h>=f.dangerH)return'urgent';if(h>=f.warnH)return'overdue';return'';}
+function siStr(ts){if(ts==null)return'Not yet recorded';return'Since '+new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+function renderFeeds(){
+  const stack=document.getElementById('feed-stack');
+  FEEDS.forEach(f=>{
+    let card=document.getElementById('fc-'+f.id);
+    if(!card){
+      card=document.createElement('div');card.id='fc-'+f.id;card.className='fcard';
+      card.innerHTML=`
+        <span class="fcard-icon">${f.icon}</span>
+        <div class="fcard-info">
+          <div class="fcard-name">${f.name}</div>
+          <div class="fcard-sub">${f.sub}</div>
+        </div>
+        <div class="fcard-right">
+          <div class="fcard-elapsed" id="fe-${f.id}">${elStr(FT[f.id])}</div>
+          <button class="btn-feed" onclick="markFed('${f.id}')">✓ Fed</button>
+          <div class="fcard-since" id="fs-${f.id}">${siStr(FT[f.id])}</div>
+        </div>`;
+      stack.appendChild(card);
+    }else{
+      document.getElementById('fe-'+f.id).textContent=elStr(FT[f.id]);
+      document.getElementById('fs-'+f.id).textContent=siStr(FT[f.id]);
+    }
+    document.getElementById('fe-'+f.id).className='fcard-elapsed '+fCls(f,FT[f.id]);
+  });
+}
+function markFed(id){
+  FT[id]=Date.now();localStorage.setItem(SK.f,JSON.stringify(FT));renderFeeds();
+  const btn=document.querySelector(`#fc-${id} .btn-feed`);
+  if(btn){const o=btn.innerHTML;btn.innerHTML='✓ Done!';btn.style.background='rgba(0,255,184,.26)';btn.style.boxShadow='0 0 14px rgba(0,255,184,.38)';
+    setTimeout(()=>{btn.innerHTML=o;btn.style.background='';btn.style.boxShadow='';},1400);}
+}
+
+/* ════════════════════════════════════════
+   MODAL
+════════════════════════════════════════ */
+function openModal(id,isManual){
+  editId=id;editManual=isManual;
+  const p=(isManual?MANUALS:PROBES).find(x=>x.id===id);
+  document.getElementById('modal-title').textContent=`Update ${p.name}${p.unit?' ('+p.unit+')':''}`;
+  const inp=document.getElementById('modal-inp');
+  inp.value=isManual?MV[id]:PV[id];
+  inp.step=p.decimals>0?Math.pow(10,-p.decimals):1;
+  document.getElementById('modal-ov').classList.add('open');
+  setTimeout(()=>inp.focus(),50);
+}
+function closeModal(){document.getElementById('modal-ov').classList.remove('open');editId=null;}
+function saveModal(){
+  if(!editId)return;
+  const v=parseFloat(document.getElementById('modal-inp').value);
+  if(!isNaN(v)){
+    if(editManual){MV[editId]=v;localStorage.setItem(SK.m,JSON.stringify(MV));renderManuals();}
+    else{PV[editId]=v;localStorage.setItem(SK.p,JSON.stringify(PV));renderProbes();checkAlerts();updateOverall();}
+  }
+  closeModal();
+}
+document.getElementById('modal-inp').addEventListener('keydown',e=>{if(e.key==='Enter')saveModal();if(e.key==='Escape')closeModal();});
+document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===document.getElementById('modal-ov'))closeModal();});
+
+/* ════════════════════════════════════════
+   OVERALL + CLOCK + INIT
+════════════════════════════════════════ */
+function updateOverall(){
+  let d=0,w=0;
+  PROBES.forEach(p=>{const s=getSt(p.min,p.max,p.absMin,p.absMax,PV[p.id]);if(s==='danger')d++;else if(s==='warn')w++;});
+  MANUALS.forEach(p=>{const s=getSt(p.min,p.max,p.absMin,p.absMax,MV[p.id]);if(s==='danger')d++;else if(s==='warn')w++;});
+  const el=document.getElementById('overall-status');
+  if(d>0){el.textContent=d+' Critical';el.style.color='var(--danger)';}
+  else if(w>0){el.textContent=w+' Warning';el.style.color='var(--warn)';}
+  else{el.textContent='All Nominal';el.style.color='var(--ok)';}
+}
+function tick(){
+  const n=new Date();
+  document.getElementById('clock-time').textContent=n.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clock-date').textContent=n.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+}
+
+loadState();
+renderProbes();renderManuals();renderFeeds();
+checkAlerts();updateOverall();tick();
+setInterval(tick,1000);setInterval(()=>{renderFeeds();renderProbes();},60000);
+if(apexIp){pollApex();startPollLoop();}
+</script>
+</body>
+</html>
